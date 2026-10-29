@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Day 3</title>
+  <link rel="stylesheet" href="style.css?v=20260725-2">
+</head>
+<body>
+  <div class="text-block">
+    <h1>Day 3</h1>
+    <p>Definitely interesting.</p>
+  </div>
+
+  <div class="image-stage" id="stage1" style="left: 50px; top: 50px;">
+    <img class="draggable-image" id="monImage" src="images/places/beffroiart.png">
+    <button class="note-hotspot" data-note="When you decided taking pictures of me was better than taking pictures of the beffroi." data-note-image="images/places/beffroipic.jpg" data-note-image-alt="The beffroi" style="left: 180px; top: 100px;"></button>
+  </div>
+
+  <div class="image-stage" id="stage2" style="left: 260px; top: 50px;">
+    <img class="draggable-image" id="introArt" src="images/places/beffroinotes.png">
+    <button class="note-hotspot" data-note="Boio tried to climb it from the outside, but after being yelled at several times he gave up. Note to self : you don’t climb buildings in the human realm. " style="left: 120px; top: 180px;"></button>
+  </div>
+
+  <div id="notePopup" class="note-popup">A mysterious note appears here...</div>
+
+  <audio id="customMusic" loop></audio>
+  <audio id="paperSound"></audio>
+
+  <script>
+    const images = document.querySelectorAll('.draggable-image');
+    const stages = document.querySelectorAll('.image-stage');
+    const customMusic = document.getElementById('customMusic');
+    const paperSound = document.getElementById('paperSound');
+    const notePopup = document.getElementById('notePopup');
+    const noteHotspots = document.querySelectorAll('.note-hotspot');
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+    let ambientStarted = false;
+    let ambientGain = null;
+    let melodyTimer = null;
+    const melodyNotes = [261.63, 293.66, 329.63, 392.0, 440.0, 392.0, 329.63, 293.66, 261.63];
+
+    // Put your downloaded music file in the project folder, then set its name here.
+    // Example: customMusic.src = 'audio/music.mp3';
+    customMusic.src = 'audio/musiqueceltique.mp3';
+
+    // Put your downloaded paper sound file in the project folder, then set its name here.
+    // Example: paperSound.src = 'audio/paper.mp3';
+    paperSound.src = 'audio/papier.mp3';
+
+    function startAudio() {
+      if (ambientStarted) return;
+      ambientStarted = true;
+
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+      }
+
+      customMusic.volume = 0.35;
+      customMusic.play().catch(() => {});
+    }
+
+    function playPaperSound() {
+      if (!paperSound.src) return;
+
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+      }
+
+      paperSound.currentTime = 0;
+      paperSound.volume = 0.25;
+      paperSound.play().catch(() => {});
+    }
+
+    noteHotspots.forEach((button) => {
+      button.type = 'button';
+      const showNote = (e) => {
+        e.stopPropagation();
+        const stage = button.closest('.image-stage');
+        const stageImage = stage.querySelector('.draggable-image');
+        const rect = button.getBoundingClientRect();
+        const stageRect = stage.getBoundingClientRect();
+        const stageScale = Number(stage.style.transform.match(/^scale\(([\d.]+)\)$/)?.[1]) || 1;
+        const noteImage = button.getAttribute('data-note-image');
+
+        notePopup.replaceChildren(document.createTextNode(button.getAttribute('data-note')));
+        if (noteImage) {
+          const image = document.createElement('img');
+          image.className = 'note-popup-image';
+          image.src = noteImage;
+          image.alt = button.getAttribute('data-note-image-alt') || '';
+          notePopup.appendChild(image);
+        }
+
+        stage.appendChild(notePopup);
+        notePopup.style.display = 'block';
+
+        const popupWidth = notePopup.offsetWidth;
+        const popupHeight = notePopup.offsetHeight;
+        const imageWidth = stageImage.offsetWidth;
+        const imageHeight = stageImage.offsetHeight;
+        const noteLeft = (rect.left - stageRect.left) / stageScale;
+        const noteTop = (rect.top - stageRect.top) / stageScale;
+        const maxLeft = Math.max(12, imageWidth - popupWidth - 12);
+        const maxTop = Math.max(12, imageHeight - popupHeight - 12);
+        const left = Math.min(maxLeft, Math.max(12, noteLeft + 18));
+        const top = Math.min(maxTop, Math.max(12, noteTop + 18));
+
+        notePopup.style.left = `${left}px`;
+        notePopup.style.top = `${top}px`;
+      };
+
+      button.addEventListener('click', showNote);
+      button.addEventListener('pointerdown', showNote);
+    });
+
+    document.addEventListener('click', () => {
+      notePopup.style.display = 'none';
+    });
+
+    document.addEventListener('click', startAudio, { once: true });
+    document.addEventListener('wheel', startAudio, { once: true });
+    document.addEventListener('touchstart', startAudio, { once: true });
+
+    stages.forEach((stage) => {
+      const img = stage.querySelector('img');
+      img.style.position = 'relative';
+      img.style.cursor = 'move';
+      img.style.userSelect = 'none';
+      img.ondragstart = () => false;
+
+      let scale = 1;
+
+      img.onwheel = function (e) {
+        e.preventDefault();
+        startAudio();
+        playPaperSound();
+        const zoomFactor = 0.1;
+        scale += e.deltaY < 0 ? zoomFactor : -zoomFactor;
+        scale = Math.max(0.7, Math.min(2.5, scale));
+        stage.style.transform = `scale(${scale})`;
+      };
+
+      img.onmousedown = function (e) {
+        e.preventDefault();
+        startAudio();
+        playPaperSound();
+
+        const shiftX = e.clientX - stage.getBoundingClientRect().left;
+        const shiftY = e.clientY - stage.getBoundingClientRect().top;
+
+        function moveAt(clientX, clientY) {
+          stage.style.left = clientX - shiftX + 'px';
+          stage.style.top = clientY - shiftY + 'px';
+        }
+
+        moveAt(e.clientX, e.clientY);
+
+        function onMouseMove(event) {
+          moveAt(event.clientX, event.clientY);
+        }
+
+        document.addEventListener('mousemove', onMouseMove);
+
+        document.onmouseup = function () {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.onmouseup = null;
+        };
+      };
+    });
+  </script>
+</body>
+</html>
